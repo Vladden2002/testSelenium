@@ -18,11 +18,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class App {
     public static void main(String[] args) throws InterruptedException {
-        String excelFilePath = "C:\\Users\\CENTOS-1\\Downloads\\Url.xlsx"; 
+        Scanner scanner = new Scanner(System.in); // Keep scanner open for user input
+        System.out.print("Enter the path to the Excel file: ");
+        String excelFilePath = scanner.nextLine();
+        
         System.setProperty("webdriver.chrome.driver", "resources\\chromedriver.exe"); 
         ChromeOptions options = new ChromeOptions();
 
@@ -44,13 +48,12 @@ public class App {
              
             Sheet sheet = workbook.getSheetAt(0);
             
-            // Assume the LinkedIn URL is in the second column (index 1) and update it with website text
-            Thread.sleep(ThreadLocalRandom.current().nextInt(5000, 7000));
+            Thread.sleep(ThreadLocalRandom.current().nextInt(2000, 2500));
 
             for (int i = 1; i < sheet.getPhysicalNumberOfRows(); i++) { 
                 Row row = sheet.getRow(i);
-                Cell domainCell = row.getCell(0); // LinkedIn URL in the first column
-                Cell websiteTextCell = row.getCell(1); // Website text to be updated in the second column
+                Cell domainCell = row.getCell(0); 
+                Cell websiteTextCell = row.getCell(1); 
 
                 if (domainCell == null || domainCell.getCellType() == CellType.BLANK) {
                     continue; 
@@ -68,15 +71,22 @@ public class App {
                 if (!domain.isEmpty()) {
                     try {
                         driver.get("https://www.google.com");
-                        Thread.sleep(ThreadLocalRandom.current().nextInt(4000, 6000));
+                        Thread.sleep(ThreadLocalRandom.current().nextInt(1500, 2000));
                         try {
-                            driver.findElement(By.name("q")).sendKeys("site:linkedin.com \"" + domain + "\"");
-                            driver.findElement(By.name("q")).submit();
-                            Thread.sleep(5000);
+                            WebElement searchBox = driver.findElement(By.name("q"));
+                            searchBox.sendKeys("site:linkedin.com \"" + domain + "\"");
+                            searchBox.submit();
+                            
+                            if (isCaptchaPresent(driver)) {
+                                System.out.println("Captcha detected. Please complete the captcha and press Enter.");
+                                scanner.nextLine(); 
+                            }
+                            
+                            Thread.sleep(1500);
                             try {
                                 List<WebElement> results = driver.findElements(By.xpath("//div[@class='MjjYud']//div[@data-snf='x5WNvb']//a"));
                                 System.out.println(results.size() + " size of results ");
-                                Thread.sleep(ThreadLocalRandom.current().nextInt(4000, 6000));                                
+                                Thread.sleep(ThreadLocalRandom.current().nextInt(1000, 2000));                                
                                 List<String> links = new ArrayList<>();
                                 
                                 for (WebElement result : results) {
@@ -99,7 +109,7 @@ public class App {
                                             websiteTextCell.setCellValue(websiteText);
                                             if (!websiteText.equals("No website text found")) {
                                                 System.out.println("Website Text: " + websiteText);
-                                                break; // Move to next row
+                                                break; 
                                             } else {
                                                 System.out.println("No website text found for link: " + link);
                                             }
@@ -120,19 +130,31 @@ public class App {
                     } catch (Exception e) {
                         System.out.println("Can't access Google: " + e.getMessage());
                     }
-                }
-            }
 
-            try (FileOutputStream fos = new FileOutputStream(excelFilePath)) {
-                workbook.write(fos);
-            } catch (IOException e) {
-                e.printStackTrace();
+                    // Write after each iteration to save progress
+                    try (FileOutputStream fos = new FileOutputStream(excelFilePath)) {
+                        workbook.write(fos);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
 
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
             driver.quit();
+            scanner.close(); // Close scanner after usage
+        }
+    }
+
+    private static boolean isCaptchaPresent(WebDriver driver) {
+        try {
+            // Check for common captcha elements or text
+            WebElement captcha = driver.findElement(By.xpath("//*[contains(text(), 'captcha')]"));
+            return captcha != null;
+        } catch (Exception e) {
+            return false;
         }
     }
 }
